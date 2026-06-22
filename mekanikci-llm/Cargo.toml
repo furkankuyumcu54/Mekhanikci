@@ -6,6 +6,7 @@ license = "MIT"
 
 [dependencies]
 mekanikci-core = { path = "../mekanikci-core" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
