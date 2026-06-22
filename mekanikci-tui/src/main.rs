@@ -1,65 +1,35 @@
-use std::path::Path;
+use std::io;
 
-use anyhow::Context;
-use mekanikci_core::backend::{CadBackend, OpenSCADBackend};
-use mekanikci_core::design::DesignSpec;
-use mekanikci_llm::client::OllamaClient;
-use mekanikci_llm::parser::parse_conveyor_spec;
-use mekanikci_llm::prompt::PromptManager;
-use mekanikci_llm::validation::validate_conveyor_spec;
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::ExecutableCommand;
+use ratatui::backend::CrosstermBackend;
+use ratatui::Terminal;
+
+use mekanikci_tui::app::App;
 
 fn main() -> anyhow::Result<()> {
-    let prompt = std::env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("Usage: mekanikci-tui <\"natural language prompt\">");
-        eprintln!("Example: mekanikci-tui \"2 meter conveyor with 500mm belt and NEMA23\"");
-        std::process::exit(1);
-    });
+    enable_raw_mode()?;
+    io::stdout().execute(EnterAlternateScreen)?;
 
-    // 1. Build prompt
-    println!("Prompt: {prompt}");
-    let full_prompt = PromptManager::build_prompt(&prompt);
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic| {
+        let _ = disable_raw_mode();
+        let _ = io::stdout().execute(LeaveAlternateScreen);
+        original_hook(panic);
+    }));
 
-    // 2. Call Ollama
-    println!("Connecting to Ollama...");
-    let client = OllamaClient::new("http://127.0.0.1:11434", "qwen3.5:4b", 0.0);
-    let json = client
-        .generate(&full_prompt)
-        .context("Failed to generate response from LLM")?;
-    println!("LLM response:\n{json}\n");
+    let backend = CrosstermBackend::new(io::stdout());
+    let mut terminal = Terminal::new(backend)?;
 
-    // 3. Parse JSON → ConveyorSpec
-    let spec = parse_conveyor_spec(&json)
-        .context("Failed to parse LLM output as conveyor specification")?;
-    println!(
-        "Parsed: {}mm x {}mm, motor: {:?} {:?}",
-        spec.length_mm, spec.belt_width_mm, spec.motor.frame, spec.motor.mount
-    );
+    let mut app = App::new();
+    let result = app.run(&mut terminal);
 
-    // 4. Validate
-    if let Err(errors) = validate_conveyor_spec(&spec) {
-        for e in &errors {
-            eprintln!("  Validation error: {} — {}", e.field, e.message);
-        }
-        anyhow::bail!("Design validation failed");
+    disable_raw_mode()?;
+    io::stdout().execute(LeaveAlternateScreen)?;
+
+    if let Err(e) = &result {
+        eprintln!("Error: {e:#}");
     }
 
-    // 5. Spec → CAD → STL
-    let cad = spec
-        .to_cad_model()
-        .context("Failed to generate CAD model from spec")?;
-    println!("CAD model: {} ({} children)", cad.name, cad.children.len());
-
-    let backend = OpenSCADBackend;
-    let output = backend
-        .render(&cad, Path::new("./output"))
-        .context("Failed to render CAD model")?;
-
-    if let Some(scad) = &output.scad_path {
-        println!("SCAD: {}", scad.display());
-    }
-    if let Some(stl) = &output.stl_path {
-        println!("STL:  {}", stl.display());
-    }
-
-    Ok(())
+    result
 }
