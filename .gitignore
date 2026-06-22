@@ -1,0 +1,9 @@
+/target
+*.stl
+*.dxf
+*.step
+*.scad
+*.svg
+*.off
+*.3mf
+.DS_Store

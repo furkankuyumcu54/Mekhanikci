@@ -1,0 +1,16 @@
+[package]
+name = "mekanikci-tui"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "mekanikci-tui"
+path = "src/main.rs"
+
+[dependencies]
+mekanikci-core = { path = "../mekanikci-core" }
+mekanikci-llm = { path = "../mekanikci-llm" }
+ratatui = "0.28"
+crossterm = "0.28"
+anyhow = "1"
