@@ -7,3 +7,4 @@
 *.off
 *.3mf
 .DS_Store
+.opencode/node_modules/
