@@ -56,7 +56,11 @@ mod tests {
     fn make_test_assembly() -> CadAssembly {
         let child_part = CadNode::Part(CadPart {
             name: "child".into(),
-            primitives: vec![CadPrimitive::Box { x: 1.0, y: 1.0, z: 1.0 }],
+            primitives: vec![CadPrimitive::Box {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+            }],
         });
 
         let child = Child {

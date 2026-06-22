@@ -5,17 +5,7 @@ use std::process::Command;
 use crate::backend::{CadBackend, OutputFiles};
 use crate::cad::{CadAssembly, CadNode, CadPrimitive, Child, Transform};
 
-pub struct OpenSCADBackend {
-    pub binary_path: String,
-}
-
-impl OpenSCADBackend {
-    pub fn new(binary_path: impl Into<String>) -> Self {
-        Self {
-            binary_path: binary_path.into(),
-        }
-    }
-}
+pub struct OpenSCADBackend;
 
 impl CadBackend for OpenSCADBackend {
     fn render(&self, model: &CadAssembly, output_dir: &Path) -> anyhow::Result<OutputFiles> {
@@ -23,29 +13,35 @@ impl CadBackend for OpenSCADBackend {
 
         let scad_path = output_dir.join("conveyor.scad");
         let stl_path = output_dir.join("conveyor.stl");
-        let bom_path = output_dir.join("bom.csv");
 
         let scad_source = generate_openscad(model);
         std::fs::write(&scad_path, &scad_source)?;
 
-        let output = Command::new(&self.binary_path)
+        let output = Command::new("openscad")
             .arg("-o")
             .arg(&stl_path)
             .arg(&scad_path)
-            .output()?;
+            .output()
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    anyhow::anyhow!(
+                        "OpenSCAD not found. Install it or add it to PATH."
+                    )
+                } else {
+                    anyhow::anyhow!("failed to execute openscad: {e}")
+                }
+            })?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("OpenSCAD rendering failed: {}", stderr);
+            anyhow::bail!("openscad failed: {stderr}");
         }
-
-        generate_bom(model, &bom_path)?;
 
         Ok(OutputFiles {
             scad_path: Some(scad_path),
             stl_path: Some(stl_path),
             step_path: None,
-            bom_path: Some(bom_path),
+            bom_path: None,
         })
     }
 }
@@ -75,7 +71,12 @@ fn write_transform(transform: &Transform, code: &mut String, indent: usize) {
     let has_rot = r != &[0.0, 0.0, 0.0];
 
     if has_trans {
-        write!(code, "{}translate([{:.1}, {:.1}, {:.1}]) ", pad, t[0], t[1], t[2]).unwrap();
+        write!(
+            code,
+            "{}translate([{:.1}, {:.1}, {:.1}]) ",
+            pad, t[0], t[1], t[2]
+        )
+        .unwrap();
     } else {
         write!(code, "{}", pad).unwrap();
     }
@@ -91,10 +92,12 @@ fn write_node(child: &Child, code: &mut String, indent: usize) {
                 write_transform(&child.transform, code, indent);
                 match prim {
                     CadPrimitive::Box { x, y, z } => {
-                        writeln!(code, "cube([{:.1}, {:.1}, {:.1}], center = true);", x, y, z).unwrap();
+                        writeln!(code, "cube([{:.1}, {:.1}, {:.1}], center = true);", x, y, z)
+                            .unwrap();
                     }
                     CadPrimitive::Cylinder { r, h } => {
-                        writeln!(code, "cylinder(r = {:.1}, h = {:.1}, center = true);", r, h).unwrap();
+                        writeln!(code, "cylinder(r = {:.1}, h = {:.1}, center = true);", r, h)
+                            .unwrap();
                     }
                 }
             }
@@ -107,37 +110,6 @@ fn write_node(child: &Child, code: &mut String, indent: usize) {
                 write_node(child, code, indent + 1);
             }
             writeln!(code, "{}}}", pad).unwrap();
-        }
-    }
-}
-
-fn generate_bom(assembly: &CadAssembly, path: &Path) -> anyhow::Result<()> {
-    let mut csv = String::new();
-    csv.push_str("Part,Quantity,Notes\n");
-    collect_bom_items(assembly, &mut csv);
-    std::fs::write(path, csv)?;
-    Ok(())
-}
-
-fn collect_bom_items(assembly: &CadAssembly, csv: &mut String) {
-    for child in &assembly.children {
-        match &*child.node {
-            CadNode::Part(part) => {
-                let qty = 1;
-                let dims: Vec<String> = part
-                    .primitives
-                    .iter()
-                    .map(|p| match p {
-                        CadPrimitive::Box { x, y, z } => format!("{:.0}x{:.0}x{:.0}", x, y, z),
-                        CadPrimitive::Cylinder { r, h } => format!("r{:.0} h{:.0}", r, h),
-                    })
-                    .collect();
-                let notes = dims.join(", ");
-                writeln!(csv, "{},{},{}", part.name, qty, notes).unwrap();
-            }
-            CadNode::Assembly(sub) => {
-                collect_bom_items(sub, csv);
-            }
         }
     }
 }

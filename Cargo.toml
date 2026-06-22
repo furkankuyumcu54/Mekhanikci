@@ -1,8 +1,10 @@
 [workspace]
 resolver = "2"
-default-members = ["mekanikci-core"]
+default-members = ["mekanikci-core", "mekanikci-llm", "mekanikci-tui"]
 members = [
     "mekanikci-core",
+    "mekanikci-llm",
+    "mekanikci-tui",
 ]
 
 [workspace.package]

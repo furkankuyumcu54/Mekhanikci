@@ -42,11 +42,7 @@ mod tests {
     use super::*;
     use mekanikci_core::design::{MotorMount, MotorSpec, NemaFrame};
 
-    fn make_spec(
-        length_mm: f64,
-        belt_width_mm: f64,
-        roller_diameter_mm: f64,
-    ) -> ConveyorSpec {
+    fn make_spec(length_mm: f64, belt_width_mm: f64, roller_diameter_mm: f64) -> ConveyorSpec {
         ConveyorSpec {
             length_mm,
             belt_width_mm,

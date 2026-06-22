@@ -11,3 +11,9 @@ impl App {
         anyhow::bail!("App::run not implemented yet")
     }
 }
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -1,6 +1,6 @@
 mod visitor;
 
-pub use visitor::{CadVisitor, walk_assembly, walk_node};
+pub use visitor::{walk_assembly, walk_node, CadVisitor};
 
 use serde::{Deserialize, Serialize};
 
@@ -59,7 +59,11 @@ mod tests {
         let part = CadPart {
             name: "test_part".into(),
             primitives: vec![
-                CadPrimitive::Box { x: 10.0, y: 20.0, z: 30.0 },
+                CadPrimitive::Box {
+                    x: 10.0,
+                    y: 20.0,
+                    z: 30.0,
+                },
                 CadPrimitive::Cylinder { r: 5.0, h: 15.0 },
             ],
         };

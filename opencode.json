@@ -1,0 +1,20 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "core-dev": {
+      "description": "Develops the mekanikci-core crate (ConveyorSpec, CadAssembly, OpenSCADBackend, STL generation)",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/core-dev.md}"
+    },
+    "llm-dev": {
+      "description": "Develops the mekanikci-llm crate (OllamaClient, PromptBuilder, JSON parsing, validation/retry)",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/llm-dev.md}"
+    },
+    "tui-dev": {
+      "description": "Develops the mekanikci-tui crate (Ratatui widgets, session management, chat history, status panels)",
+      "mode": "subagent",
+      "prompt": "{file:.opencode/agents/tui-dev.md}"
+    }
+  }
+}
