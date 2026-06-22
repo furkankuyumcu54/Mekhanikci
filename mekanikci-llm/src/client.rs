@@ -6,12 +6,14 @@ struct GenerateRequest<'a> {
     model: &'a str,
     prompt: &'a str,
     stream: bool,
+    format: &'a str,
     options: serde_json::Value,
 }
 
 #[derive(Deserialize)]
 struct GenerateResponse {
     response: String,
+    thinking: Option<String>,
 }
 
 pub struct OllamaClient {
@@ -36,6 +38,7 @@ impl OllamaClient {
             model: &self.model,
             prompt,
             stream: false,
+            format: "json",
             options: json!({ "temperature": self.temperature }),
         };
 
@@ -46,7 +49,7 @@ impl OllamaClient {
         let resp = client
             .post(&url)
             .json(&body)
-            .timeout(std::time::Duration::from_secs(120))
+            .timeout(std::time::Duration::from_secs(180))
             .send()
             .map_err(|e| anyhow::anyhow!("Cannot connect to Ollama at {}: {}", url, e))?;
 
@@ -62,11 +65,26 @@ impl OllamaClient {
         let data: GenerateResponse = serde_json::from_str(&raw_body)
             .map_err(|e| anyhow::anyhow!("Failed to parse Ollama response: {e}"))?;
 
-        if data.response.trim().is_empty() {
-            anyhow::bail!("Ollama returned an empty response. Check that the model '{}' is available.", self.model);
-        }
+        // Some models (e.g. Qwen with thinking) put the output in the thinking field
+        let output = if !data.response.trim().is_empty() {
+            data.response
+        } else if let Some(ref t) = data.thinking {
+            if !t.trim().is_empty() {
+                t.clone()
+            } else {
+                anyhow::bail!(
+                    "Ollama returned an empty response. Check that the model '{}' is available.",
+                    self.model
+                );
+            }
+        } else {
+            anyhow::bail!(
+                "Ollama returned an empty response. Check that the model '{}' is available.",
+                self.model
+            );
+        };
 
-        Ok(data.response)
+        Ok(output)
     }
 }
 
